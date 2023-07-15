@@ -8,23 +8,26 @@ int setup_sampquery_client(sampquery_client_t *client, const char *ip_address, c
 
     client->port = port;
 
-    client->socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (client->socket_fd < 0)
+    if (client->socket_fd = socket(AF_INET, SOCK_DGRAM, 0))
     {
         char error[200];
-        sprintf(error, "Failed to create client socket");
+        sprintf(error, "setup_sampquery_client:Failed to create client socket");
         sampquery_log(error, 0);
         return 0;
     }
+
+    memset(&client->socket_address, 0, sizeof(client->socket_address));
+
     client->socket_address.sin_family = AF_INET;
     client->socket_address.sin_port = htons(port);
     if (inet_aton(ip_address, &client->socket_address.sin_addr) < 0)
     {
-        sampquery_log("Failed to resolve server address", 0);
+        sampquery_log("setup_sampquery_client:Failed to resolve server address", 0);
         return 0;
     }
 
     client->socket_len = sizeof(client->socket_address);
+    return 1;
 }
 
 int setup_sampquery_request(sampquery_request_t *request_addr, sampquery_client_t client, enum E_SAMPQUERY_REQUEST_TYPE queryPacketType)
@@ -54,7 +57,106 @@ int setup_sampquery_request(sampquery_request_t *request_addr, sampquery_client_
 
     request_addr->data[10] = (unsigned char)queryPacketType;
 
-    return 0;
+    return 1;
+}
+
+int setup_sampquery_server(sampquery_server_t *server_addr, uint16_t port)
+{
+    server_addr->port = port;
+
+    if (server_addr->socket_fd = socket(AF_INET, SOCK_DGRAM, 0))
+    {
+        char error[200];
+        sprintf(error, "setup_sampquery_server:Failed to create server socket");
+        sampquery_log(error, 0);
+        return 0;
+    }
+
+    memset(&server_addr->socket_address, 0, sizeof(server_addr->socket_address));
+    server_addr->socket_address.sin_port = htons(port);
+    server_addr->socket_address.sin_family = AF_INET;
+    if (inet_aton("127.0.0.1", &server_addr->socket_address.sin_addr) < 0)
+    {
+        sampquery_log("setup_sampquery_server:Failed to resolve server address", 0);
+        return 0;
+    }
+
+    server_addr->sock_len = sizeof(server_addr->socket_address);
+
+    server_addr->shutdown = 0;
+    return 1;
+}
+
+int setup_sampquery_response(sampquery_response_t *response_addr, sampquery_request_t request)
+{
+    int client_ip_size = sizeof(request.ip_address);
+    response_addr->client_ip = (char *)malloc(client_ip_size);
+    strncpy(response_addr->client_ip, request.ip_address, client_ip_size);
+
+    response_addr->client_port = request.port;
+
+    memset(&response_addr->client_address, 0, sizeof(response_addr));
+    response_addr->client_address.sin_port = htons(request.port);
+    response_addr->client_address.sin_family = AF_INET;
+    if (inet_aton(request.ip_address, &response_addr->client_address.sin_addr) < 0)
+    {
+        sampquery_log("setup_sampquery_response:Failed to resolve client address", 0);
+        return 0;
+    }
+
+    response_addr->client_len = sizeof(response_addr->client_address);
+    return 1;
+}
+
+int sampquery_server_listen(sampquery_server_t *server_addr, sampquery_onRequest_t callback)
+{
+    server_addr->callback = callback;
+    pthread_create(&server_addr->thread, NULL, sampquery_callback_listen, (void *)server_addr);
+    pthread_detach(server_addr->thread);
+    return 1;
+}
+
+void *sampquery_callback_listen(void *args)
+{
+    sampquery_server_t *server = (sampquery_server_t *)malloc(sizeof(sampquery_server_t));
+    server = (sampquery_server_t *)args;
+
+    while (server->shutdown == 0)
+    {
+
+        sampquery_client_t client;
+        sampquery_request_t request;
+        sampquery_response_t response;
+
+        struct sockaddr_in client_address;
+        socklen_t client_len;
+
+        char buffer[SAMPQUERY_BASE_PACKET_LEN];
+        int resp = recvfrom(server->socket_fd, buffer, SAMPQUERY_BASE_PACKET_LEN, 0, (struct sockaddr *)&client_address, &client_len);
+
+        char *client_ip = inet_ntoa(client_address.sin_addr);
+        uint16_t client_port = client_address.sin_port;
+        setup_sampquery_client(&client, client_ip, client_port);
+
+        unsigned char type = (unsigned char)buffer[10];
+        setup_sampquery_request(&request, client, sampquery_getpackettype(buffer));
+        setup_sampquery_response(&response, request);
+
+        if (resp <= 0)
+        {
+            char error[200];
+            sprintf(error, "sampquery_callback_listen:Tried to received packets off %s:%d but failed", client.ip_address, client.port);
+            sampquery_log(error, 0);
+            return 0;
+        }
+        else
+        {
+            char log[200];
+            sprintf(log, "sampquery_callback_listen:Successfully received %d bytes.", resp);
+            sampquery_log(log, 1);
+            server->callback(response, request);
+        }
+    }
 }
 
 int sampquery_request(sampquery_request_t *request, sampquery_client_t client, char response[SAMPQUERY_RESPONSE_LEN])
@@ -88,6 +190,8 @@ int sampquery_request(sampquery_request_t *request, sampquery_client_t client, c
         sprintf(log, "sampquery_request:Successfully received %d bytes.", resp);
         sampquery_log(log, 1);
     }
+
+    return 1;
 }
 
 int sampquery_read_information_packet(char response[SAMPQUERY_RESPONSE_LEN], struct sampquery_information_packet *serverInformation)
@@ -95,7 +199,7 @@ int sampquery_read_information_packet(char response[SAMPQUERY_RESPONSE_LEN], str
     if (response[10] != 'i')
     {
         sampquery_log("sampquery_read_information_packet:Tried to read a invalid 'sampquery_information_packet' data", 0);
-        return 1;
+        return 0;
     }
 
     char *reader = response + SAMPQUERY_BASE_PACKET_LEN;
@@ -103,7 +207,7 @@ int sampquery_read_information_packet(char response[SAMPQUERY_RESPONSE_LEN], str
     if (reader == NULL)
     {
         sampquery_log("sampquery_read_information_packet:Tried to read a invalid 'sampquery_information_packet' data", 0);
-        return 1;
+        return 0;
     }
 
     serverInformation->isPassworded = *((unsigned char *)reader);
@@ -136,7 +240,7 @@ int sampquery_read_information_packet(char response[SAMPQUERY_RESPONSE_LEN], str
     strncpy(serverInformation->language, reader, serverInformation->language_len);
     reader += serverInformation->language_len;
 
-    return 0;
+    return 1;
 }
 
 void sampquery_log(const char *log, unsigned char debug)
@@ -152,4 +256,9 @@ void sampquery_log(const char *log, unsigned char debug)
     sprintf(logstr, "[SAMPQUERY : DEBUG] %s\n", log);
     puts(logstr);
 #endif
+}
+
+unsigned char sampquery_getpackettype(char buffer[SAMPQUERY_RESPONSE_LEN])
+{
+    return (unsigned char)buffer[10];
 }
