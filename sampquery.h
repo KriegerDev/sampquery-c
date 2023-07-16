@@ -62,6 +62,7 @@ struct sampquery_information_packet
     char *language;
 };
 
+// === Client Structure ===
 /* Sampquery request
  * Contains all information about an request.
  * @param
@@ -90,6 +91,7 @@ typedef struct sampquery_client
     socklen_t socket_len;
 } sampquery_client_t;
 
+// === Server Structure ===
 typedef struct sampquery_response
 {
     char *client_ip;
@@ -100,7 +102,20 @@ typedef struct sampquery_response
     char received[SAMPQUERY_BASE_PACKET_LEN];
 } sampquery_response_t;
 
-typedef void (*sampquery_onRequest_t)(sampquery_response_t response);
+typedef void *(*sampquery_onRequest_t)(sampquery_response_t response);
+
+typedef struct sampquery_sampsvr
+{
+    uint8_t isPassworded;
+    uint16_t player_count;
+    uint16_t max_players;
+    int hostname_len;
+    char *hostname;
+    int gamemode_len;
+    char *gamemode;
+    int language_len;
+    char *language;
+} sampquery_sampsvr_t;
 
 typedef struct sampquery_server
 {
@@ -111,18 +126,21 @@ typedef struct sampquery_server
     sampquery_onRequest_t callback;
     pthread_t thread;
     uint8_t shutdown;
+    sampquery_sampsvr_t *sampsvr;
 } sampquery_server_t;
 
-void *sampquery_callback_listen(void *args);
-
+// Client Functions
 int setup_sampquery_client(sampquery_client_t *client, const char *ip_address, const uint16_t port);
 int setup_sampquery_request(sampquery_request_t *request_addr, sampquery_client_t client, enum E_SAMPQUERY_REQUEST_TYPE queryPacketType);
+int sampquery_request(sampquery_request_t *request, sampquery_client_t client, char response[SAMPQUERY_RESPONSE_LEN]);
 
-int setup_sampquery_server(sampquery_server_t *server_addr, const char *ip, const uint16_t port);
+// Server functions
+void *sampquery_callback_listen(void *args);
+int setup_sampquery_server(sampquery_server_t *server_addr, const char *ip, const uint16_t port, sampquery_sampsvr_t *sampsvr);
 int setup_sampquery_response(sampquery_response_t *response_addr, char *client_ip, uint16_t client_port, char data[SAMPQUERY_BASE_PACKET_LEN]);
 int sampquery_server_listen(sampquery_server_t *server_addr, sampquery_onRequest_t callback);
 
-int sampquery_request(sampquery_request_t *request, sampquery_client_t client, char response[SAMPQUERY_RESPONSE_LEN]);
+// Packet functions
 int sampquery_read_information_packet(char response[SAMPQUERY_RESPONSE_LEN], struct sampquery_information_packet *serverInformation);
 unsigned char sampquery_getpackettype(char *buffer);
 

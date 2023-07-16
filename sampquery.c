@@ -61,7 +61,7 @@ int setup_sampquery_request(sampquery_request_t *request_addr, sampquery_client_
     return 1;
 }
 
-int setup_sampquery_server(sampquery_server_t *server_addr, const char *ip, const uint16_t port)
+int setup_sampquery_server(sampquery_server_t *server_addr, const char *ip, const uint16_t port, sampquery_sampsvr_t *sampsvr)
 {
     server_addr->port = port;
     server_addr->socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -94,6 +94,9 @@ int setup_sampquery_server(sampquery_server_t *server_addr, const char *ip, cons
         sampquery_log("setup_sampquery_server:Successfully binded server socket", 1);
     }
 
+    if (sampsvr != NULL)
+    {
+    }
     return 1;
 }
 
@@ -159,8 +162,11 @@ void *sampquery_callback_listen(void *args)
         client_address = *((struct sockaddr_in *)&client_addr);
 
         setup_sampquery_response(&response, inet_ntoa(client_address.sin_addr), client_address.sin_port, buffer);
-
-        server->callback(response);
+        sampquery_log("Calling callback", 1);
+        if (server->callback(response) == NULL)
+        {
+            sampquery_log("callback error", 0);
+        }
     }
 }
 

@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "sampquery.h"
+#include "../sampquery.h"
 
 int main(void)
 {
