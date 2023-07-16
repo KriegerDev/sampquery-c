@@ -8,7 +8,8 @@ int setup_sampquery_client(sampquery_client_t *client, const char *ip_address, c
 
     client->port = port;
 
-    if (client->socket_fd = socket(AF_INET, SOCK_DGRAM, 0))
+    client->socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (client->socket_fd < 0)
     {
         char error[200];
         sprintf(error, "setup_sampquery_client:Failed to create client socket");
@@ -60,22 +61,20 @@ int setup_sampquery_request(sampquery_request_t *request_addr, sampquery_client_
     return 1;
 }
 
-int setup_sampquery_server(sampquery_server_t *server_addr, uint16_t port)
+int setup_sampquery_server(sampquery_server_t *server_addr, const char *ip, const uint16_t port)
 {
     server_addr->port = port;
-
-    if (server_addr->socket_fd = socket(AF_INET, SOCK_DGRAM, 0))
+    server_addr->socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (server_addr->socket_fd < 0)
     {
-        char error[200];
-        sprintf(error, "setup_sampquery_server:Failed to create server socket");
-        sampquery_log(error, 0);
+        sampquery_log("setup_sampquery_server:Failed to create server socket", 0);
         return 0;
     }
 
     memset(&server_addr->socket_address, 0, sizeof(server_addr->socket_address));
     server_addr->socket_address.sin_port = htons(port);
     server_addr->socket_address.sin_family = AF_INET;
-    if (inet_aton("127.0.0.1", &server_addr->socket_address.sin_addr) < 0)
+    if (inet_aton(ip, &server_addr->socket_address.sin_addr) < 0)
     {
         sampquery_log("setup_sampquery_server:Failed to resolve server address", 0);
         return 0;
@@ -84,24 +83,39 @@ int setup_sampquery_server(sampquery_server_t *server_addr, uint16_t port)
     server_addr->sock_len = sizeof(server_addr->socket_address);
 
     server_addr->shutdown = 0;
+
+    if (bind(server_addr->socket_fd, (struct sockaddr *)&server_addr->socket_address, server_addr->sock_len) < 0)
+    {
+        sampquery_log("setup_sampquery_server:Failed to bind server socket", 0);
+        return 0;
+    }
+    else
+    {
+        sampquery_log("setup_sampquery_server:Successfully binded server socket", 1);
+    }
+
     return 1;
 }
 
-int setup_sampquery_response(sampquery_response_t *response_addr, sampquery_request_t request)
+int setup_sampquery_response(sampquery_response_t *response_addr, char *client_ip, uint16_t client_port, char data[SAMPQUERY_BASE_PACKET_LEN])
 {
-    int client_ip_size = sizeof(request.ip_address);
+    int client_ip_size = sizeof(client_ip);
     response_addr->client_ip = (char *)malloc(client_ip_size);
-    strncpy(response_addr->client_ip, request.ip_address, client_ip_size);
+    strncpy(response_addr->client_ip, client_ip, client_ip_size);
 
-    response_addr->client_port = request.port;
+    response_addr->client_port = client_port;
 
     memset(&response_addr->client_address, 0, sizeof(response_addr));
-    response_addr->client_address.sin_port = htons(request.port);
+    response_addr->client_address.sin_port = htons(client_port);
     response_addr->client_address.sin_family = AF_INET;
-    if (inet_aton(request.ip_address, &response_addr->client_address.sin_addr) < 0)
+    if (inet_aton(client_ip, &response_addr->client_address.sin_addr) < 0)
     {
         sampquery_log("setup_sampquery_response:Failed to resolve client address", 0);
         return 0;
+    }
+    else
+    {
+        sampquery_log("setup_sampquery_response:Successfully resolved client address", 1);
     }
 
     response_addr->client_len = sizeof(response_addr->client_address);
@@ -120,42 +134,33 @@ void *sampquery_callback_listen(void *args)
 {
     sampquery_server_t *server = (sampquery_server_t *)malloc(sizeof(sampquery_server_t));
     server = (sampquery_server_t *)args;
-
     while (server->shutdown == 0)
     {
-
-        sampquery_client_t client;
-        sampquery_request_t request;
         sampquery_response_t response;
 
         struct sockaddr_in client_address;
         socklen_t client_len;
 
+        struct sockaddr client_addr;
+
         char buffer[SAMPQUERY_BASE_PACKET_LEN];
-        int resp = recvfrom(server->socket_fd, buffer, SAMPQUERY_BASE_PACKET_LEN, 0, (struct sockaddr *)&client_address, &client_len);
-
-        char *client_ip = inet_ntoa(client_address.sin_addr);
-        uint16_t client_port = client_address.sin_port;
-        setup_sampquery_client(&client, client_ip, client_port);
-
-        unsigned char type = (unsigned char)buffer[10];
-        setup_sampquery_request(&request, client, sampquery_getpackettype(buffer));
-        setup_sampquery_response(&response, request);
-
-        if (resp <= 0)
+        int res = recvfrom(server->socket_fd, buffer, SAMPQUERY_BASE_PACKET_LEN, 0, &client_addr, &client_len);
+        if (res <= 0)
         {
-            char error[200];
-            sprintf(error, "sampquery_callback_listen:Tried to received packets off %s:%d but failed", client.ip_address, client.port);
-            sampquery_log(error, 0);
+            sampquery_log("sampquery_callback_listen:Tried to received packets but failed", 0);
             return 0;
         }
         else
         {
             char log[200];
-            sprintf(log, "sampquery_callback_listen:Successfully received %d bytes.", resp);
+            sprintf(log, "sampquery_callback_listen:Successfully received %d bytes", res);
             sampquery_log(log, 1);
-            server->callback(response, request);
         }
+        client_address = *((struct sockaddr_in *)&client_addr);
+
+        setup_sampquery_response(&response, inet_ntoa(client_address.sin_addr), client_address.sin_port, buffer);
+
+        server->callback(response);
     }
 }
 
