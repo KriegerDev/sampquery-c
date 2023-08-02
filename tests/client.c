@@ -7,7 +7,7 @@ int main(void)
     sampquery_client_t client;
     sampquery_request_t request;
 
-    setup_sampquery_client(&client, "172.17.78.33", 3034);
+    setup_sampquery_client(&client, "15.204.194.2", 7777);
     setup_sampquery_request(&request, client, INFORMATION_QUERY_PACKET);
 
     char queryResponse[SAMPQUERY_RESPONSE_LEN];

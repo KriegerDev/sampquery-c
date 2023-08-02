@@ -233,21 +233,21 @@ int sampquery_read_information_packet(char response[SAMPQUERY_RESPONSE_LEN], str
     serverInformation->hostname_len = *((unsigned int *)reader);
     reader += sizeof(unsigned int);
 
-    serverInformation->hostname = (char *)malloc(sizeof(serverInformation->hostname_len));
+    serverInformation->hostname = (char *)malloc(serverInformation->hostname_len);
     strncpy(serverInformation->hostname, reader, serverInformation->hostname_len);
     reader += serverInformation->hostname_len;
 
     serverInformation->gamemode_len = *((unsigned int *)reader);
     reader += sizeof(unsigned int);
 
-    serverInformation->gamemode = (char *)malloc(sizeof(serverInformation->gamemode_len));
+    serverInformation->gamemode = (char *)malloc(serverInformation->gamemode_len);
     strncpy(serverInformation->gamemode, reader, serverInformation->gamemode_len);
     reader += serverInformation->gamemode_len;
 
     serverInformation->language_len = *((unsigned int *)reader);
     reader += sizeof(unsigned int);
 
-    serverInformation->language = (char *)malloc(sizeof(serverInformation->language));
+    serverInformation->language = (char *)malloc(serverInformation->language_len);
     strncpy(serverInformation->language, reader, serverInformation->language_len);
     reader += serverInformation->language_len;
 
