@@ -14,11 +14,12 @@ gcc sampquery.c [yoursources] -o [youroutput]
 #include <stdlib.h>
 #include "../sampquery.h"
 
+#define PORT 7777
 int main(void)
 {
     sampquery_info_pkt_t server_info;
     sampquery_header_t header;
-    sampquery_setup_header(&header, "149.56.41.53", 7774);
+    sampquery_setup_header(&header, "ip address", PORT);
     sampquery_request(header, INFORMATION_QUERY_PACKET, &server_info);
 
     printf("Server %s\nGamemode: %s\nLanguage: %s\nMax players: %d\nOnline players: %d\n",
