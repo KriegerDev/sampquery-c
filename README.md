@@ -3,7 +3,7 @@
 
 
 ## Download
-Download content: `lib/sampquery.h` | `lib/sq_header.h` | `lib/sq_packet.h` | `lib/sq_header.h` | `bin/sampquery.a` or download a release.
+Download content from lib/ and bin/ or download a release.
 
 ## Build
 ```bash
