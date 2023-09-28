@@ -39,3 +39,11 @@ int main(void)
     return 0;
 }
 ```
+
+## Building sampquery-c
+
+```bash
+git clone https://github.com/KriegerDev/sampquery-c.git 
+cd sampquery-c
+make
+```
