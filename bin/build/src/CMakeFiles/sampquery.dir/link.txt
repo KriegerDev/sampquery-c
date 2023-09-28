@@ -1,0 +1,2 @@
+/usr/bin/ar qc libsampquery.a CMakeFiles/sampquery.dir/header.c.o CMakeFiles/sampquery.dir/packet.c.o CMakeFiles/sampquery.dir/request.c.o CMakeFiles/sampquery.dir/debug.c.o
+/usr/bin/ranlib libsampquery.a

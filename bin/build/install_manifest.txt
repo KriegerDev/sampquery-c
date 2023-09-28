@@ -1,0 +1,1 @@
+/home/krieger/networking/sampquery-c/bin/libsampquery.a

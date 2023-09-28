@@ -1,6 +1,10 @@
 # SAMPQUERY C
     Simple API for send SA-MP queries with C Language.
 
+
+## Download
+Download content: `lib/sampquery.h` | `lib/sq_header.h` | `lib/sq_packet.h` | `lib/sq_header.h` | `bin/sampquery.a` or download a release.
+
 ## Build
 ```bash
 gcc -lsampquery [yoursources] -o [youroutput]
