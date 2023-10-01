@@ -3,7 +3,7 @@
 
 
 ## Download
-Download content from lib/ and bin/ or download a release.
+Download content from lib/ and bin/ or download a release OR git clone sampquery-c to ur lib folder. 
 
 ## Build
 ```bash
@@ -12,9 +12,7 @@ gcc -lsampquery [yoursources] -o [youroutput]
 
 ## CMake
 ```bash
-target_link_libraries(yourtarget
-    "sampquery"
-)
+add_subdirectory(lib/sampquery-c)
 ```
 
 ## Usage
